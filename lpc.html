@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html>
+<head><title>LPC</title></head>
+<body>
+<script>
+
+
+'use strict';
+
+
+
+
+function faeTruncateParens(a0){
+	var k0
+	for (var i0=0;i0<a0.length;i0+=1) {
+		k0=a0[i0].charAt(a0[i0].length-1);
+		if ((k0 === "," || k0 === "`" || k0 === "'") && a0[i0+1].charAt(0) === "(") {
+			a0=a0.slice(0,i0).concat(a0[i0] + a0[i0+1],a0.slice(i0+2));
+			if (/`\(`/.test(a0[i0])) a0[i0]=a0[i0].replace(/^`\(`/,"``").replace(/\)$/,"");
+			if (/,\(,/.test(a0[i0])) a0[i0]=a0[i0].replace(/^,\(,/,",,").replace(/\)$/,"");
+		}
+	}
+}
+
+
+
+
+function indexOfArray(arr, start){
+    if(Array.isArray(arr)) {
+        for (var i0=0, i1=arr.length; i0<i1;i0+=1) {
+            if (Array.isArray(arr[i0])) {
+                return i0;
+            }
+        }
+    }
+    return false;
+}
+
+
+
+
+var defn={};
+defn["ge"]=function(a,b){return (a >= b) ? a : false;};
+defn["gt"]=function(a,b){return (a > b) ? a : false;};
+defn["lt"]=function(a,b){return (a < b) ? a : false;};
+defn["le"]=function(a,b){return (a <= b) ? a : false;};
+defn["eq"]=function(a,b){return (a === b) ? a : false;};
+defn["+"]=function(a,b){return Number(a) + Number(b);};
+defn["-"]=function(a,b){return Number(a) - Number(b);};
+defn["*"]=function(a,b){return Number(a) * Number(b);};
+defn["/"]=function(a,b){return Number(a) / Number(b);};
+defn["car"]=function(){
+    return arguments[0];
+};
+defn["cdr"]=function(){
+    return ["'",Array.prototype.slice.call(arguments,1)]
+};
+defn["true"]=function(a){if (a != false) return true;};
+
+function fadRecurse(a0) {
+	a0[indexOfArray(a0)]=replPrint(a0[indexOfArray(a0)]);
+	return a0;
+}
+
+function faaCatFirst3(a0) {
+	a0[2]=a0[0] + a0[1] + a0[2];
+	a0[a0.length-2]=a0[a0.length-2] + a0[a0.length-1];
+	return a0.slice(2,-1).join(" ");
+}
+
+function fabCatFirst2(a0){
+	a0[1]=a0[0] + a0[1];
+	a0[a0.length-2]=a0[a0.length-2] + a0[a0.length-1];
+	return a0.slice(1,-1).join(" ");
+}
+
+function facJoinAndWrap(a0){
+	return "(" + a0.join(" ") + ")";
+}
+
+function evalExpr(arr){
+	var multiDivisor=arr.slice(defn[arr[0]].length+1);
+	return (defn[arr[0]].length !== 0) ? defn[arr[0]].apply(this, arr.slice(1,defn[arr[0]].length+1)) : defn[arr[0]].apply(this, multiDivisor);
+}
+
+function evalInnerExpr(arr) {
+		var thisIndex=indexOfArray(arr)
+		arr[thisIndex]=replLoop(arr[thisIndex])
+}
+
+function unQuote(arr) {
+	var thisIndex=indexOfArray(arr)
+	arr.slice(0,thisIndex-1).concat(arr[thisIndex],arr.slice(thisIndex+1))
+}
+
+function subExpr(arr) {
+	return (indexOfArray(arr) && defn[arr[indexOfArray(arr)][0]]) ? true : false
+}
+
+function isExpr(arr){
+	return (defn[arr[0]] && (!indexOfArray(arr) || (indexOfArray(arr) && !defn[arr[indexOfArray(arr)][0]]))) ? true : false
+}
+
+function isQuoted(arr) {
+	return (indexOfArray(arr) && arr[indexOfArray(arr)-1] === "'") ? true : false
+}
+
+function sliceInner(a0,i0) {
+	return a0.slice(0,i0).concat([a0.slice(i0,a0.indexOf(")",i0+1)+1).slice(1,-1)],a0.slice(a0.indexOf(")",i0+1)+1))
+}
+
+function sliceOuter(a0,i0) {
+	return [a0.slice(i0,a0.indexOf(")",i0+1)+1).slice(1,-1)]
+}
+
+function e0 (a0, i0) {
+	return a0.slice(0,i0).concat([a0[i0].slice(0,-1)], a0[i0].slice(-1), a0.slice(i0+1));
+}
+
+function e1 (a0,i0,c) {
+	return a0.slice(0,i0).concat(a0[i0].split("").slice(0,c),[a0[i0].slice(c)],a0.slice(i0+1))
+}
+
+
+
+
+function replLoop(arr){
+	if ((Array.isArray(arr) || !isNaN(arr)) && multiDivisor.length !== 0) {
+		if(isExpr(arr)) {
+			arr = evalExpr(arr);
+			arr = replLoop([arr[0]].concat([arr],multiDivisor))
+		}
+		else if (isQuoted(arr)) { 
+			arr=replLoop(unQuote(arr));
+		}
+		else if (subExpr(arr)) {
+			arr=replLoop(evalInnerExpr(arr));
+		}
+	}
+	return arr;
+}
+	
+function replEval(a0) {
+    return replLoop(nestLists2(sepPar(mergeQuotes(splitSpaces(a0)))));
+}
+
+function replPrint(a0){
+    if (!isNaN(a0)) a0=String(a0);
+    else if (Array.isArray(a0) && !indexOfArray(a0)) {
+		a0=faeTruncateParens(a0)
+        if(a0[0] === "`" && a0[1] === ",(") a0=faaCatFirst3(a0);
+        else if (/^'\(/.test(a0[0])) a0=fabCatFirst2(a0)
+        else a0=facJoinAndWrap(a0)
+    }
+    else if (Array.isArray(a0) && indexOfArray(a0)) a0=replPrint(fadRecurse(a0));
+	return a0;
+}
+
+function nestLists2(a0){
+	var i0=0;
+	while (a0[0] === "(" || ((a0[0] === "`" || a0[0] === "," || a0[0] === "'") && a0[1] === "(")) { //outer brace
+		i0 = ((a0[0] === "`" || a0[0] === ",") && a0[1] === "(") ? 1 : 0;
+		for (var i1=a0.length;i0<i1;i0+=1){
+			if (a0[i0] === "(") {
+				var open0=a0.indexOf("(",i0+1), close0=a0.indexOf(")",i0+1);
+				if ((open0>close0 || open0 === -1) && i0 !== 0) a0=sliceInner(a0,i0);
+				else if ((open0>close0 || open0 === -1) && i0 === 0) a0=sliceOuter(a0,i0);
+			}
+			else if (a0[i0] === "'") {
+				//console.log(a0)
+			}
+			else if (a0[i0] === "`") {
+				//console.log(a0)
+			}
+			else if (a0[i0] === ",") {
+				//console.log(a0)
+			}
+		}
+	}
+	if(Array.isArray(a0[0])) a0=a0[0];
+	return a0;
+}
+
+
+
+function sepPar(a0) {
+	for (var i0=0; i0<a0.length; i0+=1) {
+		if (a0[i0].length > 1) {
+			while (a0[i0].indexOf(")") > -1) a0=e0(a0, i0)
+			var b0=a0[i0].split(""), c=0, i2=0;
+			while (i2<b0.length && "('`,".split("").indexOf(b0[i2]) > -1) i2+=1, c+=1;
+			if (c > 0) a0=e1(a0,i0,c);
+		}
+	}
+	return a0;
+}
+
+function splitSpaces(a0){
+	if (typeof a0 === "string") {
+		var a1=[], k0;
+		a1[0]=a0;
+		while (a1[0].indexOf(' ') > 0) {
+			k0=a1[0].indexOf(' ');
+			a1[a1.length]=a1[0].slice(0,k0);
+			a1[0]=a1[0].slice(k0+1);
+		}
+		a1.push(a1.shift());
+		a0=a1;
+	}
+	return a0;
+}
+
+function mergeQuotes(a0){
+	var b0,b1;
+	for (var i0=0,i1=a0.length;i0<i1;i0+=1){
+		if (b0 === undefined && a0[i0].charAt(0) === "\"" && a0[i0].charAt(a0[i0].length-1) !== "\"") {
+			b0=i0;
+		} else if (a0[i0].charAt(0) !== "\"" && a0[i0].charAt(a0[i0].length-1) === "\"") {
+			b1=i0;
+			a0[b0]=a0.slice(b0,b1+1).join(" ").slice(1,-1);
+			a0.splice(b0+1,b1-b0);
+			i1-=b1-b0;
+			b0=undefined, b1=undefined;
+			i0+=1;
+		}
+	}
+	return a0;
+}
+
+console.log(splitSpaces('(a b "hello world" d)'))
+console.log(mergeQuotes(splitSpaces('(a b "hello world" d)')))
+console.log(sepPar(mergeQuotes(splitSpaces('(a b "hello world" (+ 1 2 3) d)'))))
+var k00=sepPar(splitSpaces('(a b hello_cruel_world d)'))
+console.log(k00)
+
+
+//for (i in document.getElementById("tests")) {
+    //if (Object.prototype.toString.call(document.getElementById("tests")[i]) !== "[object Function]")console.log(i,document.getElementById("tests")[i])}
+
+
+//chris ray 651-9266 - amber front porch
+//https://www.tbray.org/ongoing/When/201x/2012/06/16/Efficiency
+//3995 clark //3854 fn
+//psu
+//http://www.fatagnus.com/unrolling-your-loop-for-better-performance-in-javascript/
+
+</script>
+</body>
+</html>
+ 
+ 
